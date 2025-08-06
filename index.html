@@ -1,0 +1,104 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Earth Circumference and Rotation Distance</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 20px;
+            text-align: center;
+        }
+        #status {
+            margin: 20px 0;
+            font-size: 18px;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Earth's Circumference and Rotation Distance</h1>
+    <p>Click the button to find the Earth's circumference at your latitude and the distance traveled in one second due to rotation.</p>
+    <button id="find-location">Get My Location</button>
+    <p id="status"></p>
+    <p id="results"></p>
+
+    <script>
+        const status = document.getElementById('status');
+        const results = document.getElementById('results');
+        const locationButton = document.getElementById('find-location');
+
+        // Earth's equatorial and polar radii (in meters)
+        const R_EQUATORIAL = 6378137; // Equatorial radius
+        const R_POLAR = 6356752; // Polar radius
+        const SECONDS_IN_DAY = 86164; // Seconds in a sidereal day (23h 56m 4s)
+        const ECCENTRICITY_SQ = 1 - (R_POLAR ** 2) / (R_EQUATORIAL ** 2); // Eccentricity squared
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                status.textContent = 'Locating...';
+                navigator.geolocation.getCurrentPosition(showPosition, showError, {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 0
+                });
+            } else {
+                status.textContent = 'Geolocation is not supported by this browser.';
+            }
+        }
+
+        function showPosition(position) {
+            const latitude = position.coords.latitude;
+            const longitude = position.coords.longitude;
+            status.textContent = `Location found: Latitude ${latitude.toFixed(4)}°, Longitude ${longitude.toFixed(4)}°`;
+
+            // Convert latitude to radians
+            const latRad = latitude * Math.PI / 180;
+            const cosLat = Math.cos(latRad);
+            const sinLat = Math.sin(latRad);
+
+            // Radius of the parallel of latitude
+            const parallelRadius = (R_EQUATORIAL * cosLat) / Math.sqrt(1 - ECCENTRICITY_SQ * sinLat * sinLat);
+
+            // Calculate circumference at this latitude
+            const circumference = 2 * Math.PI * parallelRadius;
+
+            // Calculate distance traveled in one second due to Earth's rotation
+            const rotationDistance = circumference / SECONDS_IN_DAY;
+
+            // Display results
+            results.innerHTML = `
+                <p>Earth's circumference at your latitude: ${circumference.toFixed(2)} meters (${(circumference / 1000).toFixed(2)} km)</p>
+                <p>Distance traveled in one second due to rotation: ${rotationDistance.toFixed(2)} meters</p>
+            `;
+        }
+
+        function showError(error) {
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    status.textContent = 'User denied the request for Geolocation.';
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    status.textContent = 'Location information is unavailable.';
+                    break;
+                case error.TIMEOUT:
+                    status.textContent = 'The request to get user location timed out.';
+                    break;
+                case error.UNKNOWN_ERROR:
+                    status.textContent = 'An unknown error occurred.';
+                    break;
+            }
+            results.textContent = '';
+        }
+
+        locationButton.addEventListener('click', getLocation);
+    </script>
+</body>
+</html>

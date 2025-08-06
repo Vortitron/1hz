@@ -3,102 +3,725 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Earth Circumference and Rotation Distance</title>
+    <title>EarthSync - Earth Rotation Tracker</title>
     <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
         body {
-            font-family: Arial, sans-serif;
-            max-width: 800px;
-            margin: 20px auto;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            min-height: 100vh;
             padding: 20px;
             text-align: center;
         }
+        
+        .container {
+            max-width: 400px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            font-size: 2rem;
+            margin-bottom: 10px;
+            font-weight: 300;
+        }
+        
+        .subtitle {
+            font-size: 1rem;
+            margin-bottom: 30px;
+            opacity: 0.8;
+        }
+        
+        #visual-indicator {
+            width: 120px;
+            height: 120px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.2);
+            margin: 20px auto;
+            transition: all 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2rem;
+            font-weight: bold;
+        }
+        
+        #visual-indicator.flash {
+            background: rgba(255, 255, 255, 0.9);
+            color: #1e3c72;
+            transform: scale(1.1);
+            box-shadow: 0 0 30px rgba(255, 255, 255, 0.5);
+        }
+        
+        .mode-toggle {
+            background: rgba(255, 255, 255, 0.1);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            border-radius: 25px;
+            padding: 5px;
+            margin: 20px 0;
+            display: flex;
+        }
+        
+        .mode-btn {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: white;
+            padding: 10px;
+            border-radius: 20px;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .mode-btn.active {
+            background: rgba(255, 255, 255, 0.2);
+            color: white;
+            font-weight: bold;
+        }
+        
+        .info-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin: 20px 0;
+        }
+        
+        .info-card {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .info-label {
+            font-size: 0.8rem;
+            opacity: 0.7;
+            margin-bottom: 5px;
+        }
+        
+        .info-value {
+            font-size: 1.2rem;
+            font-weight: bold;
+        }
+        
         #status {
             margin: 20px 0;
-            font-size: 18px;
+            padding: 15px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            font-size: 0.9rem;
         }
+        
         button {
-            padding: 10px 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border: 2px solid rgba(255, 255, 255, 0.3);
+            color: white;
+            padding: 15px 30px;
             font-size: 16px;
+            border-radius: 25px;
             cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        button:hover {
+            background: rgba(255, 255, 255, 0.3);
+            transform: translateY(-2px);
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .error {
+            color: #ff6b6b;
+            background: rgba(255, 107, 107, 0.1);
+        }
+        
+        .mode-explanation {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 15px;
+            margin: 15px 0;
+            font-size: 0.85rem;
+            line-height: 1.4;
+        }
+        
+        .mode-desc {
+            display: none;
+        }
+        
+        .mode-desc.active {
+            display: block;
+        }
+        
+        @media (max-width: 480px) {
+            h1 {
+                font-size: 1.5rem;
+            }
+            
+            .info-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 0 10px;
+            }
+            
+            .mode-explanation {
+                font-size: 0.8rem;
+            }
         }
     </style>
 </head>
 <body>
-    <h1>Earth's Circumference and Rotation Distance</h1>
-    <p>Click the button to find the Earth's circumference at your latitude and the distance traveled in one second due to rotation.</p>
-    <button id="find-location">Get My Location</button>
-    <p id="status"></p>
-    <p id="results"></p>
+    <div class="container">
+        <h1>EarthSync</h1>
+        <p class="subtitle">Experience Earth's rotation in real-time</p>
+        
+        <div id="visual-indicator">🌍</div>
+        
+        <div class="mode-toggle">
+            <button class="mode-btn active" id="mode1-btn">Mode 1</button>
+            <button class="mode-btn" id="mode2-btn">Mode 2</button>
+        </div>
+        
+        <div class="mode-explanation">
+            <div id="mode1-explanation" class="mode-desc active">
+                <strong>Mode 1: Distance-Based</strong><br>
+                Flashes when you've moved the same <strong>distance</strong> that Earth rotates in 1 second at your latitude. If Earth rotates 250m/s here, it flashes every time you move 250m longitudinally.
+            </div>
+            <div id="mode2-explanation" class="mode-desc">
+                <strong>Mode 2: Time-Based with Speed Adjustment</strong><br>
+                Flash interval adjusts based on your movement speed relative to Earth's rotation:<br>
+                • Stationary: 1 second intervals<br>
+                • Moving eastward: Longer intervals (slower flashing)<br>
+                • Moving westward: Shorter intervals (faster flashing)
+            </div>
+        </div>
+        
+        <div class="info-grid">
+            <div class="info-card">
+                <div class="info-label">Latitude</div>
+                <div class="info-value" id="latitude-value">--</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Longitude</div>
+                <div class="info-value" id="longitude-value">--</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">GPS Speed (km/h)</div>
+                <div class="info-value" id="speed-value">--</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Longitudinal Speed (km/h)</div>
+                <div class="info-value" id="longitudinal-speed-value">--</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Earth Speed (km/h)</div>
+                <div class="info-value" id="earth-speed-value">--</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">GPS Accuracy (m)</div>
+                <div class="info-value" id="accuracy-value">--</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label" id="interval-label">Trigger Interval (s)</div>
+                <div class="info-value" id="interval-value">--</div>
+            </div>
+            <div class="info-card">
+                <div class="info-label">Rotation Distance (m/s)</div>
+                <div class="info-value" id="rotation-distance-value">--</div>
+            </div>
+        </div>
+        
+        <button id="start-tracking">Start Tracking</button>
+        <button id="stop-tracking" style="display: none;">Stop Tracking</button>
+        <button id="show-youtube" style="margin-left: 10px;">YouTube Demo</button>
+        
+        <div id="status">Click "Start Tracking" to begin</div>
+        
+        <!-- YouTube Integration Section -->
+        <div id="youtube-section" style="display: none; margin-top: 30px;">
+            <h2 style="font-size: 1.2rem; margin-bottom: 15px;">YouTube Demo</h2>
+            <div style="margin-bottom: 15px;">
+                <input type="text" id="youtube-url" placeholder="Enter YouTube URL" 
+                       style="width: 100%; padding: 10px; border: none; border-radius: 8px; background: rgba(255,255,255,0.1); color: white; margin-bottom: 10px;">
+                <button id="load-video">Load Video</button>
+            </div>
+            <div id="youtube-player" style="margin: 15px 0;"></div>
+            <div class="info-card" style="margin-top: 15px;">
+                <div class="info-label">Video Playback Speed</div>
+                <div class="info-value" id="playback-speed-value">1.00x</div>
+            </div>
+        </div>
+    </div>
 
+    <!-- YouTube IFrame Player API -->
+    <script src="https://www.youtube.com/iframe_api"></script>
+    
     <script>
+        // DOM elements
         const status = document.getElementById('status');
-        const results = document.getElementById('results');
-        const locationButton = document.getElementById('find-location');
+        const startBtn = document.getElementById('start-tracking');
+        const stopBtn = document.getElementById('stop-tracking');
+        const mode1Btn = document.getElementById('mode1-btn');
+        const mode2Btn = document.getElementById('mode2-btn');
+        const visualIndicator = document.getElementById('visual-indicator');
+        
+        // YouTube elements
+        const youtubeSection = document.getElementById('youtube-section');
+        const youtubeUrlInput = document.getElementById('youtube-url');
+        const loadVideoBtn = document.getElementById('load-video');
+        const showYoutubeBtn = document.getElementById('show-youtube');
+        const playbackSpeedEl = document.getElementById('playback-speed-value');
+        
+        // Display elements
+        const latitudeEl = document.getElementById('latitude-value');
+        const longitudeEl = document.getElementById('longitude-value');
+        const speedEl = document.getElementById('speed-value');
+        const longitudinalSpeedEl = document.getElementById('longitudinal-speed-value');
+        const earthSpeedEl = document.getElementById('earth-speed-value');
+        const accuracyEl = document.getElementById('accuracy-value');
+        const intervalEl = document.getElementById('interval-value');
+        const intervalLabelEl = document.getElementById('interval-label');
+        const rotationDistanceEl = document.getElementById('rotation-distance-value');
+        
+        // Mode explanation elements
+        const mode1Explanation = document.getElementById('mode1-explanation');
+        const mode2Explanation = document.getElementById('mode2-explanation');
 
-        // Earth's equatorial and polar radii (in meters)
-        const R_EQUATORIAL = 6378137; // Equatorial radius
-        const R_POLAR = 6356752; // Polar radius
-        const SECONDS_IN_DAY = 86164; // Seconds in a sidereal day (23h 56m 4s)
-        const ECCENTRICITY_SQ = 1 - (R_POLAR ** 2) / (R_EQUATORIAL ** 2); // Eccentricity squared
+        // Earth's constants
+        const R_EQUATORIAL = 6378137; // Equatorial radius (meters)
+        const R_POLAR = 6356752; // Polar radius (meters)
+        const SECONDS_IN_DAY = 86164; // Seconds in a sidereal day
+        const ECCENTRICITY_SQ = 1 - (R_POLAR ** 2) / (R_EQUATORIAL ** 2);
 
-        function getLocation() {
-            if (navigator.geolocation) {
-                status.textContent = 'Locating...';
-                navigator.geolocation.getCurrentPosition(showPosition, showError, {
-                    enableHighAccuracy: true,
-                    timeout: 10000,
-                    maximumAge: 0
-                });
-            } else {
-                status.textContent = 'Geolocation is not supported by this browser.';
-            }
-        }
+        // App state
+        let watchId = null;
+        let currentMode = 1;
+        let triggerInterval = null;
+        let lastPosition = null;
+        let currentLatitude = null;
+        let currentLongitude = null;
+        let currentSpeed = 0; // m/s
+        let longitudinalSpeed = 0; // m/s (eastward positive)
+        let earthRotationSpeed = 0; // m/s at current latitude
+        let rotationDistance = 0; // meters per second
+        let gpsAccuracy = 0; // GPS accuracy in meters
+        let speedBuffer = []; // Buffer for speed smoothing
+        let positionBuffer = []; // Buffer for position-based speed calculation
+        
+        // Mode 1 distance tracking
+        let totalLongitudinalDistance = 0; // Total longitudinal distance moved in meters
+        let lastFlashDistance = 0; // Distance at last flash
+        
+        // YouTube player state
+        let youtubePlayer = null;
+        let currentPlaybackSpeed = 1.0;
 
-        function showPosition(position) {
-            const latitude = position.coords.latitude;
-            const longitude = position.coords.longitude;
-            status.textContent = `Location found: Latitude ${latitude.toFixed(4)}°, Longitude ${longitude.toFixed(4)}°`;
-
-            // Convert latitude to radians
+        // Calculate Earth's rotation parameters at given latitude
+        function calculateEarthRotation(latitude) {
             const latRad = latitude * Math.PI / 180;
             const cosLat = Math.cos(latRad);
             const sinLat = Math.sin(latRad);
-
+            
             // Radius of the parallel of latitude
             const parallelRadius = (R_EQUATORIAL * cosLat) / Math.sqrt(1 - ECCENTRICITY_SQ * sinLat * sinLat);
-
-            // Calculate circumference at this latitude
+            
+            // Circumference at this latitude
             const circumference = 2 * Math.PI * parallelRadius;
-
-            // Calculate distance traveled in one second due to Earth's rotation
-            const rotationDistance = circumference / SECONDS_IN_DAY;
-
-            // Display results
-            results.innerHTML = `
-                <p>Earth's circumference at your latitude: ${circumference.toFixed(2)} meters (${(circumference / 1000).toFixed(2)} km)</p>
-                <p>Distance traveled in one second due to rotation: ${rotationDistance.toFixed(2)} meters</p>
-            `;
+            
+            // Distance and speed
+            const distancePerSecond = circumference / SECONDS_IN_DAY;
+            const speedAtLatitude = distancePerSecond; // m/s
+            
+            return {
+                circumference,
+                distancePerSecond,
+                speedAtLatitude
+            };
         }
 
-        function showError(error) {
+        // Smooth speed values using a rolling average
+        function smoothSpeed(newSpeed) {
+            speedBuffer.push(newSpeed);
+            if (speedBuffer.length > 5) {
+                speedBuffer.shift(); // Keep only last 5 values
+            }
+            
+            // Return average, filtering out outliers
+            const sorted = [...speedBuffer].sort((a, b) => a - b);
+            const middle = Math.floor(sorted.length / 2);
+            return sorted.length % 2 === 0 
+                ? (sorted[middle - 1] + sorted[middle]) / 2
+                : sorted[middle];
+        }
+
+        // Calculate longitudinal distance and speed
+        function calculateLongitudinalMovement(position, positions) {
+            if (!positions || positions.length < 2) return { speed: 0, distance: 0 };
+            
+            // Use multiple positions for better accuracy
+            const validPositions = positions.filter(p => 
+                p && p.coords.accuracy && p.coords.accuracy < 50 // Only use positions with good accuracy
+            );
+            
+            if (validPositions.length < 2) return { speed: 0, distance: 0 };
+            
+            const recent = validPositions[validPositions.length - 1];
+            const older = validPositions[0];
+            
+            const timeDiff = (recent.timestamp - older.timestamp) / 1000; // seconds
+            if (timeDiff < 2) return { speed: 0, distance: 0 }; // Need at least 2 seconds of data
+            
+            const lon1 = older.coords.longitude * Math.PI / 180;
+            const lon2 = recent.coords.longitude * Math.PI / 180;
+            const lat = recent.coords.latitude * Math.PI / 180;
+            
+            const deltaLon = lon2 - lon1;
+            
+            // More accurate eastward distance calculation
+            const earthRadius = R_EQUATORIAL * Math.cos(lat);
+            const distance = earthRadius * deltaLon; // meters, positive for eastward
+            const speed = distance / timeDiff; // m/s, positive for eastward
+            
+            return { speed, distance };
+        }
+
+        // Check if we should flash based on mode
+        function checkForFlash() {
+            if (currentMode === 1) {
+                // Mode 1: Distance-based flashing
+                if (rotationDistance > 0) {
+                    const distanceSinceLastFlash = Math.abs(totalLongitudinalDistance - lastFlashDistance);
+                    
+                    if (distanceSinceLastFlash >= rotationDistance) {
+                        flashIndicator();
+                        lastFlashDistance = totalLongitudinalDistance;
+                    }
+                    
+                    // Update display to show distance progress
+                    const progressPercent = (distanceSinceLastFlash / rotationDistance * 100).toFixed(1);
+                    intervalEl.textContent = `${distanceSinceLastFlash.toFixed(1)}m / ${rotationDistance.toFixed(1)}m (${progressPercent}%)`;
+                }
+            } else if (currentMode === 2) {
+                // Mode 2: Time-based with speed adjustment (existing logic)
+                updateTimeBasedInterval();
+            }
+        }
+
+        // Update time-based interval for Mode 2
+        function updateTimeBasedInterval() {
+            if (triggerInterval) {
+                clearInterval(triggerInterval);
+                triggerInterval = null;
+            }
+            
+            let intervalSeconds = 1; // default 1 second
+            
+            if (earthRotationSpeed > 0) {
+                // Only use longitudinal speed if GPS accuracy is good enough
+                const effectiveLongitudinalSpeed = (gpsAccuracy < 20) ? longitudinalSpeed : 0;
+                
+                const denominator = earthRotationSpeed - effectiveLongitudinalSpeed;
+                if (Math.abs(denominator) > 0.1) { // avoid division by very small numbers
+                    intervalSeconds = earthRotationSpeed / denominator;
+                    // Clamp to reasonable values
+                    intervalSeconds = Math.max(0.2, Math.min(5, Math.abs(intervalSeconds)));
+                } else {
+                    // If nearly matching Earth's speed, use very long interval
+                    intervalSeconds = 10; 
+                }
+                
+                // If stationary (very small longitudinal speed), default to 1 second
+                if (Math.abs(effectiveLongitudinalSpeed) < 0.1) {
+                    intervalSeconds = 1.0;
+                }
+            }
+            
+            intervalEl.textContent = intervalSeconds.toFixed(2) + 's';
+            
+            // Start the flashing interval
+            if (intervalSeconds > 0 && intervalSeconds < 10) {
+                triggerInterval = setInterval(() => {
+                    flashIndicator();
+                }, intervalSeconds * 1000);
+            }
+        }
+
+        // Flash the visual indicator
+        function flashIndicator() {
+            visualIndicator.classList.add('flash');
+            setTimeout(() => {
+                visualIndicator.classList.remove('flash');
+            }, 200);
+        }
+
+        // Update display with current data
+        function updateDisplay() {
+            if (currentLatitude !== null) {
+                latitudeEl.textContent = currentLatitude.toFixed(6) + '°'; // More precision
+                longitudeEl.textContent = currentLongitude.toFixed(6) + '°'; // More precision
+                speedEl.textContent = (currentSpeed * 3.6).toFixed(2); // GPS speed in km/h
+                longitudinalSpeedEl.textContent = (longitudinalSpeed * 3.6).toFixed(3); // Longitudinal speed in km/h
+                earthSpeedEl.textContent = (earthRotationSpeed * 3.6).toFixed(1); // Earth speed in km/h
+                accuracyEl.textContent = gpsAccuracy.toFixed(1); // GPS accuracy in meters
+                rotationDistanceEl.textContent = rotationDistance.toFixed(2);
+                
+                // Color-code accuracy
+                if (gpsAccuracy < 10) {
+                    accuracyEl.style.color = '#4CAF50'; // Good accuracy - green
+                } else if (gpsAccuracy < 20) {
+                    accuracyEl.style.color = '#FFC107'; // Fair accuracy - yellow
+                } else {
+                    accuracyEl.style.color = '#F44336'; // Poor accuracy - red
+                }
+            }
+        }
+
+        // Handle geolocation position updates
+        function handlePosition(position) {
+            currentLatitude = position.coords.latitude;
+            currentLongitude = position.coords.longitude;
+            gpsAccuracy = position.coords.accuracy || 999;
+            
+            // Smooth the GPS speed reading
+            const rawSpeed = position.coords.speed || 0;
+            currentSpeed = smoothSpeed(rawSpeed);
+            
+            // Add position to buffer for longitudinal movement calculation
+            positionBuffer.push(position);
+            if (positionBuffer.length > 10) {
+                positionBuffer.shift(); // Keep only last 10 positions
+            }
+            
+            // Calculate Earth rotation parameters
+            const earthParams = calculateEarthRotation(currentLatitude);
+            earthRotationSpeed = earthParams.speedAtLatitude;
+            rotationDistance = earthParams.distancePerSecond;
+            
+            // Calculate longitudinal movement (speed and distance)
+            const movement = calculateLongitudinalMovement(position, positionBuffer);
+            longitudinalSpeed = movement.speed;
+            
+            // Update total longitudinal distance for Mode 1
+            if (movement.distance !== 0 && positionBuffer.length >= 2) {
+                totalLongitudinalDistance += Math.abs(movement.distance);
+            }
+            
+            lastPosition = position;
+            
+            // Update display
+            updateDisplay();
+            checkForFlash(); // Check for both distance and time-based flashing
+            updateVideoPlaybackSpeed();
+            
+            status.textContent = `Tracking active - Mode ${currentMode} (${gpsAccuracy.toFixed(1)}m accuracy)`;
+        }
+
+        // Handle geolocation errors
+        function handleError(error) {
+            let errorMessage;
             switch(error.code) {
                 case error.PERMISSION_DENIED:
-                    status.textContent = 'User denied the request for Geolocation.';
+                    errorMessage = 'Location access denied. Please allow location access and try again.';
                     break;
                 case error.POSITION_UNAVAILABLE:
-                    status.textContent = 'Location information is unavailable.';
+                    errorMessage = 'Location unavailable. Please check GPS/location services.';
                     break;
                 case error.TIMEOUT:
-                    status.textContent = 'The request to get user location timed out.';
+                    errorMessage = 'Location request timed out. Please try again.';
                     break;
-                case error.UNKNOWN_ERROR:
-                    status.textContent = 'An unknown error occurred.';
+                default:
+                    errorMessage = 'Unknown location error occurred.';
                     break;
             }
-            results.textContent = '';
+            
+            status.textContent = errorMessage;
+            status.classList.add('error');
         }
 
-        locationButton.addEventListener('click', getLocation);
+        // Start location tracking
+        function startTracking() {
+            if (!navigator.geolocation) {
+                status.textContent = 'Geolocation not supported by this browser.';
+                status.classList.add('error');
+                return;
+            }
+            
+            status.classList.remove('error');
+            status.textContent = 'Starting GPS tracking...';
+            
+            watchId = navigator.geolocation.watchPosition(
+                handlePosition,
+                handleError,
+                {
+                    enableHighAccuracy: true,
+                    timeout: 10000,
+                    maximumAge: 1000
+                }
+            );
+            
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+        }
+
+        // Stop location tracking
+        function stopTracking() {
+            if (watchId) {
+                navigator.geolocation.clearWatch(watchId);
+                watchId = null;
+            }
+            
+            if (triggerInterval) {
+                clearInterval(triggerInterval);
+                triggerInterval = null;
+            }
+            
+            status.textContent = 'Tracking stopped';
+            startBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'none';
+            
+            // Reset visual indicator
+            visualIndicator.classList.remove('flash');
+        }
+
+        // Switch between modes
+        function switchMode(mode) {
+            currentMode = mode;
+            
+            // Update button states
+            mode1Btn.classList.toggle('active', mode === 1);
+            mode2Btn.classList.toggle('active', mode === 2);
+            
+            // Update explanation display
+            mode1Explanation.classList.toggle('active', mode === 1);
+            mode2Explanation.classList.toggle('active', mode === 2);
+            
+            // Update label for interval display
+            if (mode === 1) {
+                intervalLabelEl.textContent = 'Distance Progress';
+            } else {
+                intervalLabelEl.textContent = 'Trigger Interval (s)';
+            }
+            
+            // Clear any existing timer for mode 2
+            if (triggerInterval) {
+                clearInterval(triggerInterval);
+                triggerInterval = null;
+            }
+            
+            // Reset Mode 1 distance tracking when switching to it
+            if (mode === 1) {
+                lastFlashDistance = totalLongitudinalDistance;
+            }
+            
+            // Update based on current mode
+            checkForFlash();
+            
+            status.textContent = `Switched to Mode ${mode} - ${mode === 1 ? 'Distance-based flashing' : 'Time-based with speed adjustment'}`;
+        }
+
+        // YouTube functions
+        function extractVideoId(url) {
+            const regExp = /^.*(youtu.be\/|v\/|u\/\w\/|embed\/|watch\?v=|\&v=)([^#\&\?]*).*/;
+            const match = url.match(regExp);
+            return (match && match[2].length === 11) ? match[2] : null;
+        }
+        
+        function loadYouTubeVideo() {
+            const url = youtubeUrlInput.value.trim();
+            if (!url) return;
+            
+            const videoId = extractVideoId(url);
+            if (!videoId) {
+                status.textContent = 'Invalid YouTube URL';
+                status.classList.add('error');
+                return;
+            }
+            
+            if (youtubePlayer) {
+                youtubePlayer.destroy();
+            }
+            
+            youtubePlayer = new YT.Player('youtube-player', {
+                height: '200',
+                width: '100%',
+                videoId: videoId,
+                playerVars: {
+                    autoplay: 0,
+                    controls: 1,
+                    rel: 0,
+                    modestbranding: 1
+                },
+                events: {
+                    onReady: (event) => {
+                        status.textContent = 'Video loaded - tracking will adjust playback speed';
+                        status.classList.remove('error');
+                    }
+                }
+            });
+            
+            youtubeSection.style.display = 'block';
+        }
+        
+        function updateVideoPlaybackSpeed() {
+            if (!youtubePlayer || currentMode !== 2) return;
+            
+            // Calculate playback speed based on movement relative to Earth's rotation
+            let speedMultiplier = 1.0;
+            
+            if (earthRotationSpeed > 0) {
+                // Ratio of longitudinal speed to Earth's rotation speed
+                const speedRatio = longitudinalSpeed / earthRotationSpeed;
+                
+                // Map speed to playback rate:
+                // - Stationary (speedRatio = 0): 1x speed
+                // - Eastward at Earth's speed (speedRatio = 1): approaches 0.25x
+                // - Westward at Earth's speed (speedRatio = -1): approaches 2x
+                speedMultiplier = 1.0 - (speedRatio * 0.75);
+                
+                // Clamp to YouTube's supported range (0.25x to 2x)
+                speedMultiplier = Math.max(0.25, Math.min(2.0, speedMultiplier));
+            }
+            
+            if (Math.abs(speedMultiplier - currentPlaybackSpeed) > 0.05) {
+                currentPlaybackSpeed = speedMultiplier;
+                
+                try {
+                    youtubePlayer.setPlaybackRate(speedMultiplier);
+                    playbackSpeedEl.textContent = speedMultiplier.toFixed(2) + 'x';
+                } catch (e) {
+                    console.log('Error setting playback rate:', e);
+                }
+            }
+        }
+        
+        // YouTube API ready callback
+        window.onYouTubeIframeAPIReady = function() {
+            loadVideoBtn.addEventListener('click', loadYouTubeVideo);
+            
+            // Add some default URLs for demo
+            if (!youtubeUrlInput.value) {
+                youtubeUrlInput.placeholder = 'Try: https://www.youtube.com/watch?v=dQw4w9WgXcQ';
+            }
+        };
+
+        // Event listeners
+        startBtn.addEventListener('click', startTracking);
+        stopBtn.addEventListener('click', stopTracking);
+        mode1Btn.addEventListener('click', () => switchMode(1));
+        mode2Btn.addEventListener('click', () => switchMode(2));
+        showYoutubeBtn.addEventListener('click', () => {
+            youtubeSection.style.display = youtubeSection.style.display === 'none' ? 'block' : 'none';
+        });
     </script>
 </body>
 </html>

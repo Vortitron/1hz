@@ -318,9 +318,16 @@
         let speedBuffer = []; // Buffer for speed smoothing
         let positionBuffer = []; // Buffer for position-based speed calculation
         
+        // Mode 2 continuous timing
+        let mode2StartTime = null;
+        let mode2LastFlashTime = 0;
+        let mode2CurrentInterval = 1.0; // Current calculated interval in seconds
+        let mode2AnimationId = null;
+        let mode2FlashState = false; // true = on, false = off
+        
         // Mode 1 distance tracking
-        let totalLongitudinalDistance = 0; // Total longitudinal distance moved in meters
-        let lastFlashDistance = 0; // Distance at last flash
+        let netLongitudinalDisplacement = 0; // Net longitudinal displacement in meters (positive = eastward)
+        let lastFlashDisplacement = 0; // Displacement at last flash
         
         // YouTube player state
         let youtubePlayer = null;
@@ -400,30 +407,26 @@
             if (currentMode === 1) {
                 // Mode 1: Distance-based flashing
                 if (rotationDistance > 0) {
-                    const distanceSinceLastFlash = Math.abs(totalLongitudinalDistance - lastFlashDistance);
+                    const displacementSinceLastFlash = Math.abs(netLongitudinalDisplacement - lastFlashDisplacement);
                     
-                    if (distanceSinceLastFlash >= rotationDistance) {
+                    if (displacementSinceLastFlash >= rotationDistance) {
                         flashIndicator();
-                        lastFlashDistance = totalLongitudinalDistance;
+                        lastFlashDisplacement = netLongitudinalDisplacement;
                     }
                     
-                    // Update display to show distance progress
-                    const progressPercent = (distanceSinceLastFlash / rotationDistance * 100).toFixed(1);
-                    intervalEl.textContent = `${distanceSinceLastFlash.toFixed(1)}m / ${rotationDistance.toFixed(1)}m (${progressPercent}%)`;
+                    // Update display to show displacement progress
+                    const progressPercent = (displacementSinceLastFlash / rotationDistance * 100).toFixed(1);
+                    const direction = netLongitudinalDisplacement >= 0 ? 'E' : 'W';
+                    intervalEl.textContent = `${displacementSinceLastFlash.toFixed(1)}m / ${rotationDistance.toFixed(1)}m (${progressPercent}%) ${direction}${Math.abs(netLongitudinalDisplacement).toFixed(1)}m`;
                 }
             } else if (currentMode === 2) {
-                // Mode 2: Time-based with speed adjustment (existing logic)
+                // Mode 2: Update interval calculation (timing handled by continuous function)
                 updateTimeBasedInterval();
             }
         }
 
         // Update time-based interval for Mode 2
         function updateTimeBasedInterval() {
-            if (triggerInterval) {
-                clearInterval(triggerInterval);
-                triggerInterval = null;
-            }
-            
             let intervalSeconds = 1; // default 1 second
             
             if (earthRotationSpeed > 0) {
@@ -446,22 +449,77 @@
                 }
             }
             
+            mode2CurrentInterval = intervalSeconds;
             intervalEl.textContent = intervalSeconds.toFixed(2) + 's';
+        }
+        
+        // Continuous timing for Mode 2
+        function mode2ContinuousTiming() {
+            if (currentMode !== 2) return;
             
-            // Start the flashing interval
-            if (intervalSeconds > 0 && intervalSeconds < 10) {
-                triggerInterval = setInterval(() => {
-                    flashIndicator();
-                }, intervalSeconds * 1000);
+            const now = performance.now() / 1000; // Current time in seconds
+            
+            if (mode2StartTime === null) {
+                mode2StartTime = now;
+                mode2LastFlashTime = now;
+                mode2FlashState = false;
+                visualIndicator.classList.remove('flash');
             }
+            
+            const timeSinceLastFlash = now - mode2LastFlashTime;
+            
+            if (!mode2FlashState) {
+                // Currently OFF - wait for calculated interval, then turn ON
+                if (timeSinceLastFlash >= mode2CurrentInterval) {
+                    visualIndicator.classList.add('flash');
+                    mode2FlashState = true;
+                    mode2LastFlashTime = now;
+                }
+            } else {
+                // Currently ON - wait 1 second, then turn OFF
+                if (timeSinceLastFlash >= 1.0) {
+                    visualIndicator.classList.remove('flash');
+                    mode2FlashState = false;
+                    mode2LastFlashTime = now;
+                }
+            }
+            
+            // Continue the timing loop
+            mode2AnimationId = requestAnimationFrame(mode2ContinuousTiming);
+        }
+        
+        // Start Mode 2 continuous timing
+        function startMode2Timing() {
+            if (mode2AnimationId) {
+                cancelAnimationFrame(mode2AnimationId);
+            }
+            mode2StartTime = null;
+            mode2LastFlashTime = 0;
+            mode2AnimationId = requestAnimationFrame(mode2ContinuousTiming);
+        }
+        
+        // Stop Mode 2 continuous timing
+        function stopMode2Timing() {
+            if (mode2AnimationId) {
+                cancelAnimationFrame(mode2AnimationId);
+                mode2AnimationId = null;
+            }
+            mode2StartTime = null;
+            mode2LastFlashTime = 0;
         }
 
         // Flash the visual indicator
         function flashIndicator() {
-            visualIndicator.classList.add('flash');
-            setTimeout(() => {
-                visualIndicator.classList.remove('flash');
-            }, 200);
+            if (currentMode === 1) {
+                // Mode 1: Brief flash (original behavior)
+                visualIndicator.classList.add('flash');
+                setTimeout(() => {
+                    visualIndicator.classList.remove('flash');
+                }, 200);
+            } else {
+                // Mode 2: Toggle flash state (handled by continuous timing)
+                visualIndicator.classList.toggle('flash');
+            }
         }
 
         // Update display with current data
@@ -511,9 +569,9 @@
             const movement = calculateLongitudinalMovement(position, positionBuffer);
             longitudinalSpeed = movement.speed;
             
-            // Update total longitudinal distance for Mode 1
+            // Update net longitudinal displacement for Mode 1
             if (movement.distance !== 0 && positionBuffer.length >= 2) {
-                totalLongitudinalDistance += Math.abs(movement.distance);
+                netLongitudinalDisplacement += movement.distance; // Keep sign: positive = eastward, negative = westward
             }
             
             lastPosition = position;
@@ -571,6 +629,11 @@
             
             startBtn.style.display = 'none';
             stopBtn.style.display = 'inline-block';
+            
+            // Start Mode 2 timing if in Mode 2
+            if (currentMode === 2) {
+                startMode2Timing();
+            }
         }
 
         // Stop location tracking
@@ -584,6 +647,9 @@
                 clearInterval(triggerInterval);
                 triggerInterval = null;
             }
+            
+            // Stop Mode 2 timing
+            stopMode2Timing();
             
             status.textContent = 'Tracking stopped';
             startBtn.style.display = 'inline-block';
@@ -612,15 +678,22 @@
                 intervalLabelEl.textContent = 'Trigger Interval (s)';
             }
             
-            // Clear any existing timer for mode 2
+            // Stop any existing timers
             if (triggerInterval) {
                 clearInterval(triggerInterval);
                 triggerInterval = null;
             }
+            stopMode2Timing();
             
-            // Reset Mode 1 distance tracking when switching to it
+            // Clear flash state when switching
+            visualIndicator.classList.remove('flash');
+            
+            // Reset Mode 1 displacement tracking when switching to it
             if (mode === 1) {
-                lastFlashDistance = totalLongitudinalDistance;
+                lastFlashDisplacement = netLongitudinalDisplacement;
+            } else if (mode === 2 && watchId !== null) {
+                // Start Mode 2 timing if tracking is active
+                startMode2Timing();
             }
             
             // Update based on current mode
